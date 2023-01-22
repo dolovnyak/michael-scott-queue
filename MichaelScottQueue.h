@@ -4,9 +4,6 @@
 
 template<class T, size_t Max_Threads_Num>
 class MichaelScottQueue {
-    static_assert(std::is_constructible<T>(),
-                  "ValueToProtect should be default constructable, because of queue is creating sentinel element");
-
 public:
     class Statistic {
     public:
@@ -27,12 +24,20 @@ private:
             _statistic.constructed_nodes_number.fetch_add(1, std::memory_order_relaxed);
         }
 
+        Node(Node* next, Statistic& statistic) : next(next), _statistic(statistic) {
+            _statistic.constructed_nodes_number.fetch_add(1, std::memory_order_relaxed);
+        }
+
         ~Node() {
             _statistic.destructed_nodes_number.fetch_add(1, std::memory_order_relaxed);
         }
 
         std::atomic<Node*> next;
-        T value;
+
+        /// hack for creation sentinel node if user type doesn't have default constructor
+        union {
+            T value;
+        };
 
     private:
         Statistic& _statistic;
@@ -41,7 +46,7 @@ private:
     using ManagerHP = hp::HazardPointerManager<Node*, 3, Max_Threads_Num>;
     using HazardPtr = hp::HazardPointer<ManagerHP>;
 
-    std::atomic<Node*> _head_ref = new Node(nullptr, T(), _statistic);
+    std::atomic<Node*> _head_ref = new Node(nullptr, _statistic);
     std::atomic<Node*> _tail_ref = _head_ref.load(/*TODO*/);
 
 public:
@@ -58,10 +63,6 @@ public:
             ++loop_times_before_success;
 
             Node* tail = hazard_pointer.Protect(_tail_ref);
-            if (tail != _tail_ref.load(/*TODO*/)) {
-                continue;
-            }
-
             Node* tail_next = tail->next.load(/*TODO*/); /// tail_next can't change if tail hasn't changed, so we shouldn't protect it
 
             Node* cas_nullptr = nullptr;
@@ -83,26 +84,15 @@ public:
         int loop_times_before_success = 0;
 
         HazardPtr hp_head = HazardPtr(&_hazard_manager);      /// for safe "_head_ref.compare_exchange(head, head_next)"
-        HazardPtr hp_head_next = HazardPtr(&_hazard_manager); /// for safe "result = head_next->ptr;"
+        HazardPtr hp_head_next = HazardPtr(&_hazard_manager); /// for safe "result = head_next->value;"
         HazardPtr hp_tail = HazardPtr(&_hazard_manager);      /// for safe "_tail_ref.compare_exchange(tail, head_next)"
 
         while (true) {
             ++loop_times_before_success;
 
             Node* head = hp_head.Protect(_head_ref);
-            if (head != _head_ref.load(/*TODO*/)) {
-                continue;
-            }
-
-            Node* tail = hp_head_next.Protect(_tail_ref);
-            if (tail != _tail_ref.load(/*TODO*/)) {
-                continue;
-            }
-
+            Node* tail = hp_tail.Protect(_tail_ref);
             Node* head_next = hp_head_next.Protect(head->next);
-            if (head_next != head->next.load(/*TODO*/)) {
-                continue;
-            }
 
             if (head == tail) {
                 if (head_next == nullptr) {
@@ -117,7 +107,8 @@ public:
 
                     hp_head.Retire();
 
-                    _statistic.loop_iterations_number_in_pop.fetch_add(loop_times_before_success, std::memory_order_relaxed);
+                    _statistic.loop_iterations_number_in_pop.fetch_add(loop_times_before_success,
+                                                                       std::memory_order_relaxed);
                     _statistic.successful_pop_number.fetch_add(1, std::memory_order_relaxed);
                     return true;
                 }

@@ -13,21 +13,6 @@ namespace hp {
     template<class PtrType, size_t Max_Hazard_Pointers_Num, size_t Max_Threads_Num>
     class HazardPointerManager {
 
-    private:
-        class ReleaserTLS {
-        public:
-            ReleaserTLS(std::atomic<bool>& release_flag) : _release_flag(release_flag) {
-                debug("created releaser for thread ", std::this_thread::get_id());
-            }
-
-            ~ReleaserTLS() {
-                _release_flag.store(true/*TODO*/);
-            }
-
-        private:
-            std::atomic<bool>& _release_flag;
-        };
-
     public:
         using ProtectedPtrType = PtrType;
 
@@ -115,7 +100,23 @@ namespace hp {
             int _current_retired_ptr_index = 0;
         };
 
+    private:
+        class ReleaserTLS {
+        public:
+            void SetTLS(DataTLS* tls) {
+                _tls = tls;
+            }
 
+            ~ReleaserTLS() {
+                _tls->free.store(true/*TODO*/);
+            }
+
+        private:
+            DataTLS* _tls;
+        };
+
+
+    public:
         HazardPointerManager(std::atomic<size_t>& clearing_call_number) : _clearing_call_number(clearing_call_number) {}
 
         ~HazardPointerManager() {
@@ -134,18 +135,21 @@ namespace hp {
                 return tls;
             }
 
+            /// if thread finished ReleaserTLS will clear it TLS using destructor
+            static thread_local ReleaserTLS releaser;
+
             /// if released tls exist - return it.
             for (DataTLS* current = _head_tls.load(/*TODO*/); current != nullptr; current = current->next.load()) {
                 bool true_cas = true;
                 if (current->free.compare_exchange_strong(true_cas, false/*TODO*/)) {
-                    /// if thread finish ReleaserTLS will clear it TLS using destructor
-                    static thread_local ReleaserTLS releaser(current->free);
+                    releaser.SetTLS(current);
                     tls = current;
                     return tls;
                 }
             }
 
             tls = new DataTLS(this);
+            releaser.SetTLS(tls);
             while (true) {
                 DataTLS* head = _head_tls.load(/*TODO*/);
                 tls->next = head;
