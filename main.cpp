@@ -54,7 +54,7 @@ void consumer_routine(void* arg) {
 
     Sync* sync = reinterpret_cast<Sync*>(arg);
 
-    while (!(sync->exit.load() && sync->queue.empty())) {
+    while (!sync->exit.load(std::memory_order_relaxed) || !sync->queue.empty() || !sync->boost_queue.empty()) {
         size_t pop_res = 0;
         size_t boost_pop_res = 0;
         if (!sync->queue.pop(pop_res) && !sync->boost_queue.pop(boost_pop_res)) {
