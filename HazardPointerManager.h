@@ -18,7 +18,7 @@ namespace hp {
 
         class InnerHazardPointer {
         public:
-            std::atomic<bool> free = true;
+            std::atomic<bool> free{true};
             std::atomic<ProtectedPtrType> ptr;
         };
 
@@ -28,25 +28,26 @@ namespace hp {
             DataTLS(HazardPointerManager<PtrType, Max_Hazard_Pointers_Num, Max_Threads_Num>* manager_tls)
                     : _manager_tls(manager_tls) {
                 for (auto& _inner_hazard: _inner_hazard_ptr_array) {
-                    _inner_hazard.free.store(true/*TODO*/);
+                    _inner_hazard.free.store(true, std::memory_order_relaxed);
                 }
                 debug("DataTLS created fot thread ", std::this_thread::get_id());
             }
 
-            std::atomic<bool> free = false;
-            std::atomic<DataTLS*> next = nullptr;
+            std::atomic<bool> free{false};
+            std::atomic<DataTLS*> next{nullptr};
 
 
+            /// Allocate and deallocate always happens from the same thread.
             InnerHazardPointer* TryAllocateHazardPtr() {
                 if (_current_hazard_ptr_index >= Max_Hazard_Pointers_Num) {
                     return nullptr;
                 }
-                _inner_hazard_ptr_array[_current_hazard_ptr_index].free.store(false/*TODO*/);
+                _inner_hazard_ptr_array[_current_hazard_ptr_index].free.store(false, std::memory_order_relaxed);
                 return &_inner_hazard_ptr_array[_current_hazard_ptr_index++];
             }
 
             void DeallocateHazardPtr(InnerHazardPointer* ptr) {
-                ptr->free.store(true);
+                ptr->free.store(std::memory_order_relaxed);
 
                 /// it's work because hazard pointers are creating and deleting in the same order.
                 --_current_hazard_ptr_index;
@@ -108,7 +109,7 @@ namespace hp {
             }
 
             ~ReleaserTLS() {
-                _tls->free.store(true/*TODO*/);
+                _tls->free.store(true, std::memory_order_relaxed);
             }
 
         private:
@@ -120,11 +121,11 @@ namespace hp {
         HazardPointerManager(std::atomic<size_t>& clearing_call_number) : _clearing_call_number(clearing_call_number) {}
 
         ~HazardPointerManager() {
-            DataTLS* head = _head_tls.load(/*TODO*/);
+            DataTLS* head = _head_tls.load(std::memory_order_relaxed);
 
             while (head != nullptr) {
                 head->ClearRetiredPointers();
-                head = head->next.load(/*TODO*/);
+                head = head->next.load(std::memory_order_relaxed);
             }
         }
 
@@ -139,9 +140,9 @@ namespace hp {
             static thread_local ReleaserTLS releaser;
 
             /// if released tls exist - return it.
-            for (DataTLS* current = _head_tls.load(/*TODO*/); current != nullptr; current = current->next.load()) {
+            for (DataTLS* current = _head_tls.load(std::memory_order_relaxed); current != nullptr; current = current->next.load()) {
                 bool true_cas = true;
-                if (current->free.compare_exchange_strong(true_cas, false/*TODO*/)) {
+                if (current->free.compare_exchange_strong(true_cas, false, std::memory_order_relaxed)) {
                     releaser.SetTLS(current);
                     tls = current;
                     return tls;
@@ -151,31 +152,31 @@ namespace hp {
             tls = new DataTLS(this);
             releaser.SetTLS(tls);
             while (true) {
-                DataTLS* head = _head_tls.load(/*TODO*/);
+                DataTLS* head = _head_tls.load(std::memory_order_relaxed);
                 tls->next = head;
-                if (_head_tls.compare_exchange_weak(head, tls/*TODO*/)) {
+                if (_head_tls.compare_exchange_weak(head, tls, std::memory_order_relaxed)) {
                     return tls;
                 }
             }
         }
 
         std::unordered_set<ProtectedPtrType> GetUsedHazardPointers() {
-            DataTLS* head = _head_tls.load(/*TODO*/);
+            DataTLS* head = _head_tls.load(std::memory_order_relaxed);
 
             std::unordered_set<ProtectedPtrType> res;
-            while (head != nullptr && !head->free.load(/*TODO*/)) {
+            while (head != nullptr && !head->free.load(std::memory_order_relaxed)) {
                 for (int i = 0; i < head->_max_hazard_ptrs_num(); ++i) {
-                    if (!head->_inner_hazard_ptr_array[i].free.load(/*TODO*/)) {
-                        res.emplace(head->_inner_hazard_ptr_array[i].ptr.load(/*TODO*/));
+                    if (!head->_inner_hazard_ptr_array[i].free.load(std::memory_order_relaxed)) {
+                        res.emplace(head->_inner_hazard_ptr_array[i].ptr.load(std::memory_order_relaxed));
                     }
                 }
-                head = head->next.load(/*TODO*/);
+                head = head->next.load(std::memory_order_relaxed);
             }
             return res;
         }
 
     private:
-        std::atomic<DataTLS*> _head_tls = nullptr;
+        std::atomic<DataTLS*> _head_tls{nullptr};
 
         std::atomic<size_t>& _clearing_call_number;
     };

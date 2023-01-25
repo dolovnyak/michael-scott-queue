@@ -28,19 +28,14 @@ namespace hp {
             if (!_tls->TryAddRetiredPtr(_inner_hazard_pointer->ptr)) {
                 _tls->ClearRetiredPointers();
                 if (!_tls->TryAddRetiredPtr(_inner_hazard_pointer->ptr)) {
-                    /// TODO set log error, program will terminate for now.
                     throw std::logic_error("Still there is no space for retired_ptr, after clearing");
                 }
             }
         }
 
         ProtectedPtrType Protect(const std::atomic<ProtectedPtrType>& ptr) {
-            while (true) {
-                _inner_hazard_pointer->ptr = ptr.load(/*TODO*/);
-                if (_inner_hazard_pointer->ptr == ptr.load()) {
-                    return _inner_hazard_pointer->ptr;
-                }
-            }
+            _inner_hazard_pointer->ptr = ptr.load(std::memory_order_relaxed);
+            return _inner_hazard_pointer->ptr;
         }
 
     private:

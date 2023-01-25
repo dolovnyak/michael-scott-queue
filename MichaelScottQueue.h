@@ -7,14 +7,14 @@ class MichaelScottQueue {
 public:
     class Statistic {
     public:
-        std::atomic<size_t> constructed_nodes_number = 0;
-        std::atomic<size_t> destructed_nodes_number = 0;
-        std::atomic<size_t> loop_iterations_number_in_push = 0;
-        std::atomic<size_t> successful_push_number = 0;
-        std::atomic<size_t> loop_iterations_number_in_pop = 0;
-        std::atomic<size_t> successful_pop_number = 0;
-        std::atomic<size_t> empty_pop_number = 0;
-        std::atomic<size_t> clearing_function_call_number = 0;
+        std::atomic<size_t> constructed_nodes_number{0};
+        std::atomic<size_t> destructed_nodes_number{0};
+        std::atomic<size_t> loop_iterations_number_in_push{0};
+        std::atomic<size_t> successful_push_number{0};
+        std::atomic<size_t> loop_iterations_number_in_pop{0};
+        std::atomic<size_t> successful_pop_number{0};
+        std::atomic<size_t> empty_pop_number{0};
+        std::atomic<size_t> clearing_function_call_number{0};
     };
 
 private:
@@ -46,8 +46,8 @@ private:
     using ManagerHP = hp::HazardPointerManager<Node*, 3, Max_Threads_Num>;
     using HazardPtr = hp::HazardPointer<ManagerHP>;
 
-    std::atomic<Node*> _head_ref = new Node(nullptr, _statistic);
-    std::atomic<Node*> _tail_ref = _head_ref.load(/*TODO*/);
+    std::atomic<Node*> _head_ref{new Node(nullptr, _statistic)};
+    std::atomic<Node*> _tail_ref{_head_ref.load(std::memory_order_relaxed)};
 
 public:
 
@@ -63,14 +63,14 @@ public:
             ++loop_times_before_success;
 
             Node* tail = hazard_pointer.Protect(_tail_ref);
-            Node* tail_next = tail->next.load(/*TODO*/); /// tail_next can't change if tail hasn't changed, so we shouldn't protect it
+            Node* tail_next = tail->next.load(std::memory_order_relaxed); /// tail_next can't change if tail hasn't changed, so we shouldn't protect it
 
             Node* cas_nullptr = nullptr;
             if (tail_next != nullptr) {
-                _tail_ref.compare_exchange_weak(tail, tail_next/*TODO*/);
+                _tail_ref.compare_exchange_weak(tail, tail_next, std::memory_order_relaxed);
             }
-            else if (tail->next.compare_exchange_strong(cas_nullptr, new_node/*TODO*/)) {
-                _tail_ref.compare_exchange_weak(tail, new_node/*TODO*/);
+            else if (tail->next.compare_exchange_strong(cas_nullptr, new_node, std::memory_order_relaxed)) {
+                _tail_ref.compare_exchange_weak(tail, new_node, std::memory_order_relaxed);
 
                 _statistic.loop_iterations_number_in_push.fetch_add(loop_times_before_success,
                                                                     std::memory_order_relaxed);
@@ -99,10 +99,10 @@ public:
                     _statistic.empty_pop_number.fetch_add(1, std::memory_order_relaxed);
                     return false;
                 }
-                _tail_ref.compare_exchange_weak(tail, head_next/*TODO*/);
+                _tail_ref.compare_exchange_weak(tail, head_next, std::memory_order_relaxed);
             }
             else {
-                if (_head_ref.compare_exchange_strong(head, head_next/*TODO*/)) {
+                if (_head_ref.compare_exchange_strong(head, head_next, std::memory_order_relaxed)) {
                     result = head_next->value;
 
                     hp_head.Retire();
@@ -120,7 +120,7 @@ public:
         HazardPtr hp_head(&_hazard_manager);
         Node* head = hp_head.Protect(_head_ref);
 
-        return head->next.load(/*TODO*/) == nullptr;
+        return head->next.load(std::memory_order_relaxed) == nullptr;
     }
 
     const Statistic& GetStatistic() {
