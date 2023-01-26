@@ -7,9 +7,9 @@
 
 #include "MichaelScottQueue.h"
 
-static const int iterations = 99999;
-static const int producer_number = 50;
-static const int consumer_number = 100;
+static const int iterations = 999999;
+static const int producer_number = 20;
+static const int consumer_number = 10;
 
 using MSQueue = MichaelScottQueue<size_t, producer_number + consumer_number>;
 static std::atomic<size_t> g_final_sum{0};
@@ -72,13 +72,6 @@ void consumer_routine(void* arg) {
 
 int main() {
     Sync sync;
-
-//    if (!sync.boost_queue.is_lock_free()) {
-//        debug("boost::lockfree::queue is not lockfree");
-//    }
-//    else {
-//        debug("boost::lockfree::queue is lockfree");
-//    }
 
     std::vector<std::thread> producer_threads;
     std::vector<std::thread> consumer_threads;

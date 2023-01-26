@@ -1,18 +1,18 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.24)
 project(michael_scott_queue)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "-pthread -O3")
 
-add_executable(michael_scott_queue
+add_executable(${PROJECT_NAME}
         main.cpp
         )
 
 find_package(Boost REQUIRED COMPONENTS thread program_options REQUIRED)
 
-target_include_directories(michael_scott_queue PUBLIC ${Boost_INCLUDE_DIR})
+target_include_directories(${PROJECT_NAME} PUBLIC ${Boost_INCLUDE_DIR})
 
-target_link_libraries(michael_scott_queue LINK_PUBLIC ${Boost_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} LINK_PUBLIC ${Boost_LIBRARIES})
 
 set_target_properties(${PROJECT_NAME}
         PROPERTIES
