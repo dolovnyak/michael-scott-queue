@@ -34,8 +34,14 @@ namespace hp {
         }
 
         ProtectedPtrType Protect(const std::atomic<ProtectedPtrType>& ptr) {
-            _inner_hazard_pointer->ptr = ptr.load(std::memory_order_relaxed);
-            return _inner_hazard_pointer->ptr;
+            /// This construction is important because we can sleep on first ptr.load() and during this sleep
+            /// clearing function can start and delete ptr that we loaded.
+            while (true) {
+                _inner_hazard_pointer->ptr = ptr.load(std::memory_order_acquire);
+                if (_inner_hazard_pointer->ptr == ptr.load(std::memory_order_acquire)) {
+                    return _inner_hazard_pointer->ptr;
+                }
+            }
         }
 
     private:

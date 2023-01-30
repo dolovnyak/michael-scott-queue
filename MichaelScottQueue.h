@@ -7,6 +7,10 @@ class MichaelScottQueue {
 public:
     class Statistic {
     public:
+        ~Statistic() {
+            debug("Statistic destructed in thread ", std::this_thread::get_id());
+        }
+
         std::atomic<size_t> constructed_nodes_number{0};
         std::atomic<size_t> destructed_nodes_number{0};
         std::atomic<size_t> loop_iterations_number_in_push{0};
@@ -50,8 +54,19 @@ private:
     std::atomic<Node*> _tail_ref{_head_ref.load(std::memory_order_relaxed)};
 
 public:
-
     MichaelScottQueue() : _hazard_manager(_statistic.clearing_function_call_number) {}
+
+    ~MichaelScottQueue() {
+        debug("MichaelScottQueue destructed in thread ", std::this_thread::get_id());
+
+        /// queue must be destroyed in one thread when others have finished working with it.
+        Node* current = _head_ref.load(std::memory_order_relaxed);
+        while (current != nullptr) {
+            Node* next = current->next.load(std::memory_order_relaxed);
+            delete current;
+            current = next;
+        }
+    }
 
     void push(T value) {
         int loop_times_before_success = 0;
@@ -63,14 +78,15 @@ public:
             ++loop_times_before_success;
 
             Node* tail = hazard_pointer.Protect(_tail_ref);
-            Node* tail_next = tail->next.load(std::memory_order_relaxed); /// tail_next can't change if tail hasn't changed, so we shouldn't protect it
+            Node* tail_next = tail->next.load(std::memory_order_acquire); /// tail_next can't change if tail hasn't changed, so we shouldn't protect it
 
             Node* cas_nullptr = nullptr;
             if (tail_next != nullptr) {
-                _tail_ref.compare_exchange_weak(tail, tail_next, std::memory_order_relaxed);
+                _tail_ref.compare_exchange_weak(tail, tail_next, std::memory_order_release, std::memory_order_relaxed);
             }
-            else if (tail->next.compare_exchange_strong(cas_nullptr, new_node, std::memory_order_relaxed)) {
-                _tail_ref.compare_exchange_weak(tail, new_node, std::memory_order_relaxed);
+            else if (tail->next.compare_exchange_strong(cas_nullptr, new_node, std::memory_order_release,
+                                                        std::memory_order_relaxed)) {
+                _tail_ref.compare_exchange_weak(tail, new_node, std::memory_order_release, std::memory_order_relaxed);
 
                 _statistic.loop_iterations_number_in_push.fetch_add(loop_times_before_success,
                                                                     std::memory_order_relaxed);
@@ -99,10 +115,10 @@ public:
                     _statistic.empty_pop_number.fetch_add(1, std::memory_order_relaxed);
                     return false;
                 }
-                _tail_ref.compare_exchange_weak(tail, head_next, std::memory_order_relaxed);
+                _tail_ref.compare_exchange_weak(tail, head_next, std::memory_order_release, std::memory_order_relaxed);
             }
             else {
-                if (_head_ref.compare_exchange_strong(head, head_next, std::memory_order_relaxed)) {
+                if (_head_ref.compare_exchange_strong(head, head_next, std::memory_order_release, std::memory_order_relaxed)) {
                     result = head_next->value;
 
                     hp_head.Retire();
@@ -120,7 +136,7 @@ public:
         HazardPtr hp_head(&_hazard_manager);
         Node* head = hp_head.Protect(_head_ref);
 
-        return head->next.load(std::memory_order_relaxed) == nullptr;
+        return head->next.load(std::memory_order_acquire) == nullptr;
     }
 
     const Statistic& GetStatistic() {

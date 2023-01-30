@@ -19,6 +19,8 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         make \
         libboost-all-dev  \
+        clang-11 \
+        libclang-11-dev  \
         build-essential \
         software-properties-common \
         clang \

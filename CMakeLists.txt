@@ -1,8 +1,10 @@
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.0)
 project(michael_scott_queue)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "-pthread -O3")
+#set(CMAKE_CXX_FLAGS "-pthread -g")
+#set(CMAKE_CXX_FLAGS "-pthread -fsanitize=thread -g -O3")
+set(CMAKE_CXX_FLAGS "-pthread -fsanitize=address -g -O3")
 
 add_executable(${PROJECT_NAME}
         main.cpp
