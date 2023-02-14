@@ -1,9 +1,5 @@
 # michael-scott-queue
 
-Работоспособность проверена только на тесте в мейне, где есть n продюсеров, k консьюмеров и m итераций. продюсеры пишут номер итерации в очередь, консьюмеры читают из очедери значения и суммируют их в своей локальной переменной, в конце все локальные переменные тредов складываются и это значение сверяется со значением посчитаном в одном потоке.
-На этом тесте очередь себя показывает очень хорошо. 
+This is michael scott's queue using my implementation of hazard pointers.
 
-Ради интереса я поменял модель памяти на relaxed с уверенностью что очередь упадет на процессоре m1 (у которога arm архитектура), но она не упала и это немного странно. Возможно компилятор детектит зависимость по данным и не переупорядочивает данные (в определенных местах это критично)
-Оставлю пока везде relaxed чтобы если проблема все же есть быстрее найти и понять ее.
-
-Нужно протестить поведение, что корректно создаются и завершаются треды которые используют очередь.
+Tested with a pthread sanitizer on a test where n producers are written to the queue and m consumers are read from it, and the threads are turned off after some iterations and new ones are create. flly implemented on compare and set (CAS) operations and optimized with a more flexible memory model.
