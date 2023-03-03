@@ -2,7 +2,7 @@
 
 This is Michael Scott's queue implementation using my implementation of danger pointers.
 
-Tested with a pthread sanitizer on a test where n producers are written to the queue and m consumers are read from it, and the threads are turned off after some iterations and new ones are create. fully implemented on compare and set (CAS) operations and optimized with a more flexible memory model.
+Tested with a pthread sanitizer on a test where n producers are written to the queue and m consumers are read from it, and the threads are turned off after some iterations and new ones are create. Fully implemented on compare and set (CAS) operations and optimized with a more flexible memory model.
 
 TODO: memory model optimization is not fully completed, this does not affect the correctness of the queue, but it affects its performance.
 
