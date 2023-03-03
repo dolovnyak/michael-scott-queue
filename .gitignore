@@ -1,4 +1,7 @@
 *.idea/
-*cmake-build-debug
+*cmake-build-dummy_debug
 *a.out
-michael_scott_queue
+*michael_scott_queue
+*cmake-build-debug/
+*michael-scott-queue-example
+

@@ -12,26 +12,6 @@ static const int g_consumer_iterations_before_die = 500;
 static const int g_producer_number = 20;
 static const int g_consumer_number = 10;
 
-template<class T>
-class FakeQueue {
-public:
-    typedef T value_type;
-
-    FakeQueue(size_t) {}
-
-    bool push(const T& value) {
-        return false;
-    }
-
-    bool pop(T& res_value) {
-        return false;
-    }
-
-    bool empty() const {
-        return true;
-    }
-};
-
 using MSQueue = MichaelScottQueue<size_t, g_producer_number + g_consumer_number>;
 static std::atomic<size_t> g_final_sum{0};
 static std::atomic<size_t> g_boost_final_sum{0};
@@ -42,8 +22,7 @@ public:
 
     }
 
-//    boost::lockfree::queue<size_t> boost_queue;
-    FakeQueue<size_t> boost_queue;
+    boost::lockfree::queue<size_t> boost_queue;
     MSQueue queue;
     std::atomic<bool> exit{false};
     std::atomic<int> counter{0};
@@ -101,7 +80,6 @@ void consumer_routine(void* arg) {
 }
 
 int main() {
-    LOG_DEBUG("aaa");
     Sync sync;
 
     std::vector<std::thread> producer_threads;
