@@ -1,6 +1,6 @@
 #pragma once
 
-#include "HazardPointer.h"
+#include "internal/HazardPointer.h"
 
 template<class T, size_t Max_Threads_Num>
 class MichaelScottQueue {
@@ -8,7 +8,7 @@ public:
     class Statistic {
     public:
         ~Statistic() {
-            debug("Statistic destructed in thread ", std::this_thread::get_id());
+            LOG_DEBUG("Statistic destructed in thread ", std::this_thread::get_id());
         }
 
         std::atomic<size_t> constructed_nodes_number{0};
@@ -57,7 +57,7 @@ public:
     MichaelScottQueue() : _hazard_manager(_statistic.clearing_function_call_number) {}
 
     ~MichaelScottQueue() {
-        debug("MichaelScottQueue destructed in thread ", std::this_thread::get_id());
+        LOG_DEBUG("MichaelScottQueue destructed in thread ", std::this_thread::get_id());
 
         /// queue must be destroyed in one thread when others have finished working with it.
         Node* current = _head_ref.load(std::memory_order_relaxed);

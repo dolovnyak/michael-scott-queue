@@ -51,7 +51,7 @@ public:
 };
 
 void* producer_routine(void* arg) {
-    debug("Start producer_routine with thread id ", std::this_thread::get_id());
+    LOG_DEBUG("Start producer_routine with thread id ", std::this_thread::get_id());
 
     auto* sync = reinterpret_cast<Sync*>(arg);
 
@@ -65,13 +65,13 @@ void* producer_routine(void* arg) {
     while (sync->counter.load(std::memory_order_relaxed) < g_producer_number) {}
     sync->exit.store(true, std::memory_order_relaxed);
 
-    debug("Finish producer_routine with thread id ", std::this_thread::get_id());
+    LOG_DEBUG("Finish producer_routine with thread id ", std::this_thread::get_id());
 
     return nullptr;
 }
 
 void consumer_routine(void* arg) {
-    debug("Start consumer_routine with thread id ", std::this_thread::get_id());
+    LOG_DEBUG("Start consumer_routine with thread id ", std::this_thread::get_id());
     size_t local_res = 0;
     size_t boost_local_res = 0;
 
@@ -97,11 +97,11 @@ void consumer_routine(void* arg) {
     sync->current_consumers_num.fetch_add(-1, std::memory_order_release);
     g_final_sum.fetch_add(local_res);
     g_boost_final_sum.fetch_add(boost_local_res);
-    debug("Finish consumer_routine ", std::this_thread::get_id(), ", with result ", local_res);
+    LOG_DEBUG("Finish consumer_routine ", std::this_thread::get_id(), ", with result ", local_res);
 }
 
 int main() {
-    debug("aaa");
+    LOG_DEBUG("aaa");
     Sync sync;
 
     std::vector<std::thread> producer_threads;
@@ -138,12 +138,12 @@ int main() {
             expected_res += j + 1;
         }
     }
-    debug("expected res:       ", expected_res);
-    debug("boost final value:  ", g_boost_final_sum.load());
-    debug("final value:        ", g_final_sum.load());
+    LOG_DEBUG("expected res:       ", expected_res);
+    LOG_DEBUG("boost final value:  ", g_boost_final_sum.load());
+    LOG_DEBUG("final value:        ", g_final_sum.load());
 
     auto& statistic = sync.queue.GetStatistic();
-    debug("\nstatistic:",
+    LOG_DEBUG("\nstatistic:",
           "\nsuccessful push number: ", statistic.successful_push_number.load(),
           "\nsuccessful pop number: ", statistic.successful_pop_number.load(),
           "\nempty pop number: ", statistic.empty_pop_number.load(),

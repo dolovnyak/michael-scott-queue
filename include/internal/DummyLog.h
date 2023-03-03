@@ -2,8 +2,11 @@
 
 #include <iostream>
 
+#ifdef __APPLE__
 static pthread_mutex_t g_cout_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
-//static pthread_mutex_t g_cout_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+#elif __linux__
+static pthread_mutex_t g_cout_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+#endif
 
 template<class T>
 void debug(T t) {
@@ -19,3 +22,10 @@ void debug(T t, Args... args) {
     debug(args...);
     pthread_mutex_unlock(&g_cout_mutex);
 }
+
+
+#ifndef MS_DEBUG
+#define LOG_DEBUG(...)          debug(__VA_ARGS__);
+#else
+#define LOG_DEBUG(...)
+#endif

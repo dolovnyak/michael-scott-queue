@@ -26,7 +26,7 @@ namespace hp {
         public:
 
             ~DataTLS() {
-                debug("TLS destructed in thread ", std::this_thread::get_id());
+                LOG_DEBUG("TLS destructed in thread ", std::this_thread::get_id());
             }
 
             DataTLS(HazardPointerManager<PtrType, Max_Hazard_Pointers_Num, Max_Threads_Num>* manager_tls)
@@ -34,7 +34,7 @@ namespace hp {
                 for (auto& _inner_hazard: _inner_hazard_ptr_array) {
                     _inner_hazard.free.store(true);
                 }
-                debug("DataTLS constructed in thread ", std::this_thread::get_id());
+                LOG_DEBUG("DataTLS constructed in thread ", std::this_thread::get_id());
             }
 
             std::atomic<bool> free{false};
@@ -156,7 +156,7 @@ namespace hp {
                 delete current;
                 current = next;
             }
-            debug("HazardPointerManager destructed in thread ", std::this_thread::get_id());
+            LOG_DEBUG("HazardPointerManager destructed in thread ", std::this_thread::get_id());
         }
 
         DataTLS* GetTLS() {
