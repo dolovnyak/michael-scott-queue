@@ -4,6 +4,8 @@
 #include <unordered_set>
 #include <array>
 
+namespace msq {
+
 #ifdef __APPLE__
 static pthread_mutex_t g_cout_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
 #elif __linux__
@@ -285,7 +287,7 @@ private:
 };
 
 template<class T, size_t Max_Threads_Num>
-class MichaelScottQueue {
+class Queue {
 public:
     class Statistic {
     public:
@@ -336,10 +338,10 @@ private:
     std::atomic<Node*> _tail_ref{_head_ref.load(std::memory_order_relaxed)};
 
 public:
-    MichaelScottQueue() : _hazard_manager(_statistic.clearing_function_call_number) {}
+    Queue() : _hazard_manager(_statistic.clearing_function_call_number) {}
 
-    ~MichaelScottQueue() {
-        LOG_DEBUG("MichaelScottQueue destructed in thread ", std::this_thread::get_id());
+    ~Queue() {
+        LOG_DEBUG("Queue destructed in thread ", std::this_thread::get_id());
 
         /// queue must be destroyed in one thread when others have finished working with it.
         Node* current = _head_ref.load(std::memory_order_relaxed);
@@ -360,7 +362,8 @@ public:
             ++loop_times_before_success;
 
             Node* tail = hazard_pointer.Protect(_tail_ref);
-            Node* tail_next = tail->next.load(std::memory_order_acquire); /// tail_next can't change if tail hasn't changed, so we shouldn't protect it
+            Node* tail_next = tail->next.load(
+                    std::memory_order_acquire); /// tail_next can't change if tail hasn't changed, so we shouldn't protect it
 
             Node* cas_nullptr = nullptr;
             if (tail_next != nullptr) {
@@ -400,7 +403,8 @@ public:
                 _tail_ref.compare_exchange_weak(tail, head_next, std::memory_order_release, std::memory_order_relaxed);
             }
             else {
-                if (_head_ref.compare_exchange_strong(head, head_next, std::memory_order_release, std::memory_order_relaxed)) {
+                if (_head_ref.compare_exchange_strong(head, head_next, std::memory_order_release,
+                                                      std::memory_order_relaxed)) {
                     result = head_next->value;
 
                     hp_head.Retire();
@@ -429,3 +433,5 @@ private:
     Statistic _statistic;
     ManagerHP _hazard_manager;
 };
+
+}

@@ -1,8 +1,6 @@
 #include <vector>
 #include <thread>
-#include <unistd.h>
 #include <future>
-#include <cassert>
 #include <boost/lockfree/queue.hpp>
 
 #include "MichaelScottQueue.h"
@@ -12,7 +10,7 @@ static const int g_consumer_iterations_before_die = 500;
 static const int g_producer_number = 20;
 static const int g_consumer_number = 10;
 
-using MSQueue = MichaelScottQueue<size_t, g_producer_number + g_consumer_number>;
+using MSQueue = msq::Queue<size_t, g_producer_number + g_consumer_number>;
 static std::atomic<size_t> g_final_sum{0};
 static std::atomic<size_t> g_boost_final_sum{0};
 
@@ -30,7 +28,7 @@ public:
 };
 
 void* producer_routine(void* arg) {
-    LOG_DEBUG("Start producer_routine with thread id ", std::this_thread::get_id());
+    msq::LOG_DEBUG("Start producer_routine with thread id ", std::this_thread::get_id());
 
     auto* sync = reinterpret_cast<Sync*>(arg);
 
@@ -44,13 +42,13 @@ void* producer_routine(void* arg) {
     while (sync->counter.load(std::memory_order_relaxed) < g_producer_number) {}
     sync->exit.store(true, std::memory_order_relaxed);
 
-    LOG_DEBUG("Finish producer_routine with thread id ", std::this_thread::get_id());
+    msq::LOG_DEBUG("Finish producer_routine with thread id ", std::this_thread::get_id());
 
     return nullptr;
 }
 
 void consumer_routine(void* arg) {
-    LOG_DEBUG("Start consumer_routine with thread id ", std::this_thread::get_id());
+    msq::LOG_DEBUG("Start consumer_routine with thread id ", std::this_thread::get_id());
     size_t local_res = 0;
     size_t boost_local_res = 0;
 
@@ -76,7 +74,7 @@ void consumer_routine(void* arg) {
     sync->current_consumers_num.fetch_add(-1, std::memory_order_release);
     g_final_sum.fetch_add(local_res);
     g_boost_final_sum.fetch_add(boost_local_res);
-    LOG_DEBUG("Finish consumer_routine ", std::this_thread::get_id(), ", with result ", local_res);
+    msq::LOG_DEBUG("Finish consumer_routine ", std::this_thread::get_id(), ", with result ", local_res);
 }
 
 int main() {
@@ -116,12 +114,12 @@ int main() {
             expected_res += j + 1;
         }
     }
-    LOG_DEBUG("expected res:       ", expected_res);
-    LOG_DEBUG("boost final value:  ", g_boost_final_sum.load());
-    LOG_DEBUG("final value:        ", g_final_sum.load());
+    msq::LOG_DEBUG("expected res:       ", expected_res);
+    msq::LOG_DEBUG("boost final value:  ", g_boost_final_sum.load());
+    msq::LOG_DEBUG("final value:        ", g_final_sum.load());
 
     auto& statistic = sync.queue.GetStatistic();
-    LOG_DEBUG("\nstatistic:",
+    msq::LOG_DEBUG("\nstatistic:",
           "\nsuccessful push number: ", statistic.successful_push_number.load(),
           "\nsuccessful pop number: ", statistic.successful_pop_number.load(),
           "\nempty pop number: ", statistic.empty_pop_number.load(),
