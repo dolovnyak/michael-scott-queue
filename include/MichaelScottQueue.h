@@ -3,6 +3,8 @@
 #include <iostream>
 #include <unordered_set>
 #include <array>
+#include <atomic>
+#include <memory>
 
 namespace msq {
 
@@ -28,9 +30,9 @@ void dummy_debug(T t, Args... args) {
 }
 
 #ifndef MSQ_DEBUG
-#define LOG_DEBUG(...)
+#define MSQ_LOG_DEBUG(...)
 #else
-#define LOG_DEBUG(...)          dummy_debug(__VA_ARGS__);
+#define MSQ_LOG_DEBUG(...)          dummy_debug(__VA_ARGS__);
 #endif
 
 template<class PtrType, size_t Max_Hazard_Pointers_Num, size_t Max_Threads_Num>
@@ -49,7 +51,7 @@ public:
     public:
 
         ~DataTLS() {
-            LOG_DEBUG("TLS destructed in thread ", std::this_thread::get_id());
+            MSQ_LOG_DEBUG("TLS destructed in thread ", std::this_thread::get_id());
         }
 
         DataTLS(HazardPointerManager<PtrType, Max_Hazard_Pointers_Num, Max_Threads_Num>* manager_tls)
@@ -57,7 +59,7 @@ public:
             for (auto& _inner_hazard: _inner_hazard_ptr_array) {
                 _inner_hazard.free.store(true);
             }
-            LOG_DEBUG("DataTLS constructed in thread ", std::this_thread::get_id());
+            MSQ_LOG_DEBUG("DataTLS constructed in thread ", std::this_thread::get_id());
         }
 
         std::atomic<bool> free{false};
@@ -179,7 +181,7 @@ public:
             delete current;
             current = next;
         }
-        LOG_DEBUG("HazardPointerManager destructed in thread ", std::this_thread::get_id());
+        MSQ_LOG_DEBUG("HazardPointerManager destructed in thread ", std::this_thread::get_id());
     }
 
     DataTLS* GetTLS() {
@@ -292,7 +294,7 @@ public:
     class Statistic {
     public:
         ~Statistic() {
-            LOG_DEBUG("Statistic destructed in thread ", std::this_thread::get_id());
+            MSQ_LOG_DEBUG("Statistic destructed in thread ", std::this_thread::get_id());
         }
 
         std::atomic<size_t> constructed_nodes_number{0};
@@ -341,7 +343,7 @@ public:
     Queue() : _hazard_manager(_statistic.clearing_function_call_number) {}
 
     ~Queue() {
-        LOG_DEBUG("Queue destructed in thread ", std::this_thread::get_id());
+        MSQ_LOG_DEBUG("Queue destructed in thread ", std::this_thread::get_id());
 
         /// queue must be destroyed in one thread when others have finished working with it.
         Node* current = _head_ref.load(std::memory_order_relaxed);
